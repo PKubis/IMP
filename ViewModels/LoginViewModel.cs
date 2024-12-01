@@ -4,16 +4,15 @@ using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Microsoft.Maui.Storage; // Użycie Preferences
+using Microsoft.Maui.Storage;
 using Microsoft.Maui.Controls;
 using Firebase.Database.Query;
-using IMP.ViewModels;
 
 namespace IMP.ViewModels
 {
     internal class LoginViewModel : INotifyPropertyChanged
     {
-        private readonly string webApiKey = "AIzaSyDNtwI02aWPPvuGGK22Hm8LskD6soyIpZY"; // Twój klucz API
+        private readonly string webApiKey = "AIzaSyDNtwI02aWPPvuGGK22Hm8LskD6soyIpZY";
         private readonly INavigation _navigation;
         private string userName;
         private string userPassword;
@@ -72,18 +71,32 @@ namespace IMP.ViewModels
                 UserId = auth.User.LocalId;
                 string email = auth.User.Email;
 
-                // Zapisanie użytkownika w Realtime Database
+                Console.WriteLine($"Logging in UserId: {UserId}, Email: {email}");
+
+                // Sprawdź dane użytkownika w Firebase
                 var firebaseClient = new Firebase.Database.FirebaseClient("https://impdb-557fa-default-rtdb.europe-west1.firebasedatabase.app");
-                var user = new { Email = email, UserId };
-                await firebaseClient.Child("users").Child(UserId).PutAsync(user);
+                var existingUser = await firebaseClient.Child("users").Child(UserId).OnceSingleAsync<object>();
+
+                if (existingUser == null)
+                {
+                    // Dodaj użytkownika tylko, jeśli nie istnieje
+                    var user = new { Email = email, UserId };
+                    await firebaseClient.Child("users").Child(UserId).PutAsync(user);
+                    Console.WriteLine("User added to Firebase.");
+                }
+                else
+                {
+                    Console.WriteLine("User already exists in Firebase.");
+                }
 
                 // Przekierowanie na stronę HomePage po udanym logowaniu
                 await _navigation.PushAsync(new HomePage(UserId));
 
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"Login failed: {ex.Message}");
                 return false;
             }
         }

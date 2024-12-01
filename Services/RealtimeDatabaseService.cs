@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -18,46 +19,56 @@ namespace IMP.Services
             _httpClient = new HttpClient();
         }
 
-        public async Task<List<Section>> GetSectionsAsync(string userId)
-        {
-            try
-            {
-                var url = $"{_databaseUrl}users/{userId}/sections.json";
-                var response = await _httpClient.GetStringAsync(url);
-
-                if (string.IsNullOrEmpty(response) || response == "null")
-                    return new List<Section>();
-
-                var sections = JsonSerializer.Deserialize<Dictionary<string, Section>>(response);
-                return sections?.Values.ToList() ?? new List<Section>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-                throw;
-            }
-        }
-
+        // Metoda zapisu sekcji do Firebase
         public async Task SaveSectionAsync(string userId, Section section)
         {
             try
             {
                 var json = JsonSerializer.Serialize(section);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var url = $"{_databaseUrl}users/{userId}/sections.json";
-                var response = await _httpClient.PostAsync(url, content);
+                var url = $"{_databaseUrl}users/{userId}/sections/{section.Id}.json"; // Każda sekcja zapisywana pod unikalnym ID
+                var response = await _httpClient.PutAsync(url, content);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new Exception($"Error saving section: {response.StatusCode}");
+                    throw new Exception($"Failed to save section: {response.StatusCode}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                Console.WriteLine($"Error saving section: {ex.Message}");
                 throw;
             }
         }
+
+        // Metoda odczytu sekcji z Firebase
+        public async Task<List<Section>> GetSectionsAsync(string userId)
+        {
+            try
+            {
+                var url = $"{_databaseUrl}users/{userId}/sections.json";
+                var response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Failed to fetch sections: {response.StatusCode}");
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(json) || json == "null")
+                    return new List<Section>();
+
+                var sectionsDict = JsonSerializer.Deserialize<Dictionary<string, Section>>(json);
+                return sectionsDict?.Values.ToList() ?? new List<Section>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching sections: {ex.Message}");
+                return new List<Section>();
+            }
+        }
+
+        // Metoda zapisu użytkownika do Firebase
         public async Task AddUserAsync(string userId, string email)
         {
             try
@@ -71,32 +82,11 @@ namespace IMP.Services
                 var json = JsonSerializer.Serialize(user);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var url = $"{_databaseUrl}users/{userId}.json";
-                var response = await _httpClient.PostAsync(url, content);
+                var response = await _httpClient.PutAsync(url, content);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new Exception($"Error adding user: {response.StatusCode}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-                throw;
-            }
-        }
-
-        public async Task UpdateSectionAsync(string userId, Section section)
-        {
-            try
-            {
-                var json = JsonSerializer.Serialize(section);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var url = $"{_databaseUrl}users/{userId}/sections/{section.Id}.json";
-                var response = await _httpClient.PatchAsync(url, content);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Error updating section: {response.StatusCode}");
                 }
             }
             catch (Exception ex)

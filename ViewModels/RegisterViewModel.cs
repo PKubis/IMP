@@ -4,9 +4,7 @@ using System;
 using System.ComponentModel;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Storage;
-using IMP.Services; // Importowanie serwisu
-using Firebase.Database;
+using IMP.Services;
 
 namespace IMP.ViewModels
 {
@@ -15,7 +13,7 @@ namespace IMP.ViewModels
         private string email;
         private string password;
         private string repeatPassword;
-        private readonly RealtimeDatabaseService _realtimeDatabaseService;  // Referencja do serwisu
+        private readonly RealtimeDatabaseService _realtimeDatabaseService;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -53,44 +51,41 @@ namespace IMP.ViewModels
 
         public RegisterViewModel()
         {
-            _realtimeDatabaseService = new RealtimeDatabaseService();  // Inicjalizacja serwisu
+            _realtimeDatabaseService = new RealtimeDatabaseService();
             RegisterUser = new Command(RegisterUserTappedAsync);
         }
 
-        private async void RegisterUserTappedAsync(object obj)
+        private async void RegisterUserTappedAsync()
         {
             if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(Password) || string.IsNullOrEmpty(RepeatPassword))
             {
-                await Application.Current.MainPage.DisplayAlert("Alert", "Please enter email and both password fields.", "OK");
+                await Application.Current.MainPage.DisplayAlert("Błąd", "Wszystkie pola są wymagane.", "OK");
                 return;
             }
 
             if (Password != RepeatPassword)
             {
-                await Application.Current.MainPage.DisplayAlert("Alert", "Passwords do not match.", "OK");
+                await Application.Current.MainPage.DisplayAlert("Błąd", "Hasła nie są zgodne.", "OK");
                 return;
             }
 
             try
             {
-                // Firebase Authentication - Rejestracja użytkownika
-                var authProvider = new FirebaseAuthProvider(new FirebaseConfig("AIzaSyDNtwI02aWPPvuGGK22Hm8LskD6soyIpZY"));
+                var authProvider = new FirebaseAuthProvider(new FirebaseConfig("Twój_Firebase_API_Key"));
                 var auth = await authProvider.CreateUserWithEmailAndPasswordAsync(Email, Password);
 
                 string userId = auth.User.LocalId;
                 string email = auth.User.Email;
 
-                // Zapisanie użytkownika do Realtime Database za pomocą serwisu
-                await _realtimeDatabaseService.AddUserAsync(userId, email);  // Dodaj użytkownika do Realtime Database
+                // Dodaj użytkownika do Firebase Realtime Database
+                await _realtimeDatabaseService.AddUserAsync(userId, email);
 
-                // Przekierowanie na stronę główną po udanej rejestracji
-                await Application.Current.MainPage.Navigation.PushAsync(new HomePage(userId));  // Używamy userId, aby przekazać go do HomePage
-
-                await Application.Current.MainPage.DisplayAlert("Alert", "User Registered successfully", "OK");
+                // Przekierowanie do sekcji
+                await Application.Current.MainPage.Navigation.PushAsync(new SectionsPage(userId));
             }
             catch (Exception ex)
             {
-                await Application.Current.MainPage.DisplayAlert("Alert", ex.Message, "OK");
+                await Application.Current.MainPage.DisplayAlert("Błąd", ex.Message, "OK");
             }
         }
 

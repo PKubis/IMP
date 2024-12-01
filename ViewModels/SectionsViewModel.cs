@@ -1,42 +1,32 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
-using System.Threading.Tasks;
-using System.Linq;
 using IMP.Models;
 using IMP.Services;
-using System.Collections.Generic;
 
 namespace IMP.ViewModels
 {
     public class SectionsViewModel : BaseViewModel
     {
-        public SectionsViewModel() { } // Domyślny konstruktor dla XAML
+        private readonly RealtimeDatabaseService _firebaseService;
+        private string _userId;
 
-        public SectionsViewModel(string userId)
+        public SectionsViewModel()
         {
-            _userId = userId;
             _firebaseService = new RealtimeDatabaseService();
-
+            Sections = new ObservableCollection<Section>();
+            InitializeDayColors();
             ToggleDayCommand = new Command<string>(ToggleDay);
             AddSectionCommand = new Command(async () => await AddSection());
+        }
 
+        public SectionsViewModel(string userId) : this()
+        {
+            _userId = userId;
             LoadSections();
         }
 
-        private readonly string _userId;
-        private readonly RealtimeDatabaseService _firebaseService;
-
-        public ObservableCollection<Section> Sections { get; set; } = new ObservableCollection<Section>();
-        public Dictionary<string, string> DayColors { get; set; } = new Dictionary<string, string>
-        {
-            { "pn", "LightGray" },
-            { "wt", "LightGray" },
-            { "śr", "LightGray" },
-            { "cz", "LightGray" },
-            { "pt", "LightGray" },
-            { "sb", "LightGray" },
-            { "nd", "LightGray" }
-        };
+        public ObservableCollection<Section> Sections { get; set; }
+        public Dictionary<string, string> DayColors { get; set; }
 
         public ICommand ToggleDayCommand { get; }
         public ICommand AddSectionCommand { get; }
@@ -71,24 +61,41 @@ namespace IMP.ViewModels
 
         private List<string> _selectedDays = new List<string>();
 
+        private void InitializeDayColors()
+        {
+            DayColors = new Dictionary<string, string>
+            {
+                { "pn", "LightGray" },
+                { "wt", "LightGray" },
+                { "śr", "LightGray" },
+                { "cz", "LightGray" },
+                { "pt", "LightGray" },
+                { "sb", "LightGray" },
+                { "nd", "LightGray" }
+            };
+        }
+
         private void ToggleDay(string day)
         {
             if (_selectedDays.Contains(day))
             {
                 _selectedDays.Remove(day);
-                DayColors[day] = "LightGray"; // Dzień odznaczony
+                DayColors[day] = "LightGray";
             }
             else
             {
                 _selectedDays.Add(day);
-                DayColors[day] = "Teal"; // Dzień zaznaczony
+                DayColors[day] = "Teal";
             }
             OnPropertyChanged(nameof(DayColors));
         }
 
         private async void LoadSections()
         {
+            if (string.IsNullOrEmpty(_userId)) return;
+
             var sections = await _firebaseService.GetSectionsAsync(_userId);
+            Sections.Clear();
             foreach (var section in sections)
             {
                 Sections.Add(section);
@@ -106,20 +113,19 @@ namespace IMP.ViewModels
                 Name = SectionName,
                 StartTime = StartTime,
                 Duration = int.Parse(Duration),
-                SelectedDays = string.Join(", ", _selectedDays) // Zapisz wybrane dni
+                SelectedDays = string.Join(", ", _selectedDays)
             };
 
             await _firebaseService.SaveSectionAsync(_userId, newSection);
             Sections.Add(newSection);
 
-            // Resetuj pola po dodaniu sekcji
             SectionName = string.Empty;
             StartTime = string.Empty;
             Duration = string.Empty;
             _selectedDays.Clear();
-            foreach (var day in DayColors.Keys.ToList())
-                DayColors[day] = "LightGray";
+            InitializeDayColors();
             OnPropertyChanged(nameof(DayColors));
+            OnPropertyChanged(nameof(Sections));
         }
     }
 }
